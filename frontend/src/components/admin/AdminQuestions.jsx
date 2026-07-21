@@ -6,6 +6,8 @@ export default function AdminQuestions() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showCatForm, setShowCatForm] = useState(false)
+  const [catForm, setCatForm] = useState({ name: '', icon: '📚', description: '' })
   const [msg, setMsg] = useState('')
   const [form, setForm] = useState({
     text: '', difficulty: 'medium', category_id: '', explanation: '',
@@ -18,9 +20,31 @@ export default function AdminQuestions() {
   })
 
   useEffect(() => {
-    api.getCategories().then(setCategories).catch(() => {})
+    loadCategories()
     loadQuestions()
   }, [])
+
+  const loadCategories = async () => {
+    try {
+      const data = await api.getCategories()
+      setCategories(Array.isArray(data) ? data : [])
+    } catch (e) { console.error(e) }
+  }
+
+  const addCategory = async (e) => {
+    e.preventDefault()
+    if (!catForm.name.trim()) return
+    try {
+      await api.request('/api/admin/categories', {
+        method: 'POST',
+        body: JSON.stringify(catForm),
+      })
+      setMsg('✅ Kategoriya qo\'shildi!')
+      setCatForm({ name: '', icon: '📚', description: '' })
+      setShowCatForm(false)
+      loadCategories()
+    } catch (e) { setMsg('❌ ' + (e?.message || String(e))) }
+  }
 
   const loadQuestions = async () => {
     setLoading(true)
@@ -75,12 +99,53 @@ export default function AdminQuestions() {
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h2 className="text-white font-bold">❓ Savollar</h2>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary px-4 py-2 text-sm">
-          {showForm ? '✕ Yopish' : '➕ Qo\'shish'}
-        </button>
+        <h2 className="text-white font-bold">❓ Savollar ({questions.length})</h2>
+        <div className="flex gap-2">
+          <button onClick={() => { setShowCatForm(!showCatForm); setShowForm(false) }}
+            className="bg-white/10 text-gray-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
+            📂 Kategoriya
+          </button>
+          <button onClick={() => { setShowForm(!showForm); setShowCatForm(false) }}
+            className="btn-primary px-3 py-1.5 text-xs">
+            {showForm ? '✕' : '➕ Savol'}
+          </button>
+        </div>
       </div>
-      {msg && <div className="card text-center text-sm text-green-400">{msg}</div>}
+      {msg && <div className={`card text-center text-sm ${msg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>{msg}</div>}
+
+      {/* Kategoriya qo'shish formasi */}
+      {showCatForm && (
+        <form onSubmit={addCategory} className="card space-y-2 border border-blue-500/30">
+          <p className="text-white font-bold text-sm">📂 Yangi kategoriya</p>
+          <div className="flex gap-2">
+            <input type="text" placeholder="Emoji (masalan: 🔢)" value={catForm.icon}
+              onChange={e => setCatForm(f => ({ ...f, icon: e.target.value }))}
+              className="w-16 p-2 rounded-xl bg-white/10 text-white border border-white/10 outline-none text-sm text-center"
+              style={{ userSelect: 'text' }} />
+            <input type="text" placeholder="Kategoriya nomi *" required value={catForm.name}
+              onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))}
+              className="flex-1 p-2 rounded-xl bg-white/10 text-white border border-white/10 outline-none text-sm"
+              style={{ userSelect: 'text' }} />
+          </div>
+          <button type="submit" className="btn-primary w-full py-2 text-sm">✅ Saqlash</button>
+        </form>
+      )}
+
+      {/* Mavjud kategoriyalar */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {categories.map(c => (
+            <span key={c.id} className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full">
+              {c.icon} {c.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {categories.length === 0 && (
+        <div className="card bg-yellow-900/20 text-yellow-400 text-sm text-center py-2">
+          ⚠️ Kategoriya yo'q — savollar "Barchasi" bo'limiga qo'shiladi
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={submit} className="card space-y-3">

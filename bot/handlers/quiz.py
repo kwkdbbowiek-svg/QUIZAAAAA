@@ -4,7 +4,7 @@ Quiz handler - Test va quiz o'tkazish
 
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from sqlalchemy import select
+from sqlalchemy import select, func
 import random
 
 from shared.database.base import AsyncSessionLocal
@@ -26,19 +26,44 @@ async def start_quiz_menu(message: Message, user: User):
             select(Category).where(Category.is_active == True)
         )
         categories = result.scalars().all()
-    
-    if not categories:
+
+        # Savollar soni
+        q_count_result = await session.execute(
+            select(func.count(Question.id)).where(Question.is_active == True)
+        )
+        total_questions = q_count_result.scalar() or 0
+
+    if total_questions < QUESTIONS_PER_QUIZ:
         await message.answer(
-            "😔 Hozircha test kategoriyalari mavjud emas.\n"
-            "Adminlar tez orada qo'shadi! 🔜"
+            f"😔 Hozircha yetarli savollar mavjud emas.\n"
+            f"Kerak: {QUESTIONS_PER_QUIZ} ta, mavjud: {total_questions} ta\n"
+            f"Adminlar tez orada qo'shadi! 🔜"
         )
         return
-    
+
+    # Kategoriya bo'lmasa ham "Barchasi" bilan boshlansin
+    keyboard = []
+    keyboard.append([
+        InlineKeyboardButton(text="🎲 Barcha kategoriyalar", callback_data="quiz_cat_all")
+    ])
+    for i in range(0, len(categories), 2):
+        row = [InlineKeyboardButton(
+            text=f"{categories[i].icon} {categories[i].name}",
+            callback_data=f"quiz_cat_{categories[i].id}"
+        )]
+        if i + 1 < len(categories):
+            row.append(InlineKeyboardButton(
+                text=f"{categories[i+1].icon} {categories[i+1].name}",
+                callback_data=f"quiz_cat_{categories[i+1].id}"
+            ))
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_main")])
+
     await message.answer(
-        "🎯 <b>Quiz Boshlash</b>\n\n"
-        "Qaysi sohada bilimingizni sinab ko'rmoqchisiz?\n"
-        "Kategoriyani tanlang:",
-        reply_markup=get_quiz_categories_keyboard(categories)
+        f"🎯 <b>Quiz Boshlash</b>\n\n"
+        f"📚 Jami {total_questions} ta savol mavjud.\n"
+        f"Kategoriyani tanlang:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )
 
 
