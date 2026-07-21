@@ -32,6 +32,17 @@ class ApiService {
     return response.json()
   }
 
+  // ─── Admin Direct Login ───────────────────────────────────────────────────
+  async adminLogin(username, password) {
+    const data = await this.request('/api/auth/admin-login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    })
+    this.token = data.access_token
+    localStorage.setItem('token', this.token)
+    return data
+  }
+
   // ─── Auth ─────────────────────────────────────────────────────────────────
   async auth(initData) {
     const data = await this.request('/api/auth/telegram', {

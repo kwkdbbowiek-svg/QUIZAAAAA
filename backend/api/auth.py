@@ -12,10 +12,11 @@ from urllib.parse import unquote
 
 from shared.database import get_db, User
 from shared.config import settings
-from backend.core.security import create_telegram_token
+from backend.core.security import create_telegram_token, create_access_token
 from backend.schemas.user import TokenResponse, UserProfile
 from shared.database.redis_client import get_redis, RatingService
 import redis.asyncio as aioredis
+from datetime import timedelta
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -108,3 +109,35 @@ async def telegram_auth(
     user_profile.global_rank = ranks["global_rank"]
     
     return TokenResponse(access_token=token, user=user_profile)
+
+
+@router.post("/admin-login")
+async def admin_login(
+    username: str = Body(...),
+    password: str = Body(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin uchun to'g'ridan-to'g'ri login (brauzer uchun)"""
+    if username != settings.ADMIN_USERNAME or password != settings.ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Login yoki parol noto'g'ri"
+        )
+
+    # Admin foydalanuvchini topish
+    result = await db.execute(select(User).where(User.is_admin == True))
+    admin_user = result.scalars().first()
+
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Admin foydalanuvchi topilmadi")
+
+    token = create_access_token(
+        data={"sub": str(admin_user.telegram_id), "type": "admin"},
+        expires_delta=timedelta(days=7)
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": UserProfile.model_validate(admin_user)
+    }
