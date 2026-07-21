@@ -1,60 +1,53 @@
 /**
- * API Service - Backend bilan aloqa
+ * API Service — barcha API so'rovlar shu orqali o'tadi
  */
-
-const API_URL = import.meta.env.VITE_API_URL || ''
 
 class ApiService {
   constructor() {
-    this.token = localStorage.getItem('token')
+    this.token = localStorage.getItem('eduquiz_token') || null
+  }
+
+  setToken(token) {
+    this.token = token
+    if (token) localStorage.setItem('eduquiz_token', token)
+    else localStorage.removeItem('eduquiz_token')
   }
 
   async request(endpoint, options = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
+    const headers = { 'Content-Type': 'application/json', ...options.headers }
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+
+    let url = endpoint.startsWith('http') ? endpoint : endpoint
+    const res = await fetch(url, { ...options, headers })
+
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`
+      try { const d = await res.json(); msg = d.detail || d.message || msg } catch {}
+      throw new Error(msg)
     }
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`
-    }
-
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Xato' }))
-      throw new Error(error.detail || 'Server xatosi')
-    }
-
-    return response.json()
+    return res.json()
   }
 
-  // ─── Admin Direct Login ───────────────────────────────────────────────────
-  async adminLogin(username, password) {
-    const data = await this.request('/api/auth/admin-login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    })
-    this.token = data.access_token
-    localStorage.setItem('token', this.token)
-    return data
-  }
-
-  // ─── Auth ─────────────────────────────────────────────────────────────────
+  // ─── Auth ──────────────────────────────────────────────────────────────────
   async auth(initData) {
     const data = await this.request('/api/auth/telegram', {
       method: 'POST',
       body: JSON.stringify({ init_data: initData }),
     })
-    this.token = data.access_token
-    localStorage.setItem('token', this.token)
+    this.setToken(data.access_token)
     return data
   }
 
-  // ─── User ─────────────────────────────────────────────────────────────────
+  async adminLogin(username, password) {
+    const data = await this.request('/api/auth/admin-login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    })
+    this.setToken(data.access_token)
+    return data
+  }
+
+  // ─── User ──────────────────────────────────────────────────────────────────
   async getProfile() {
     return this.request('/api/users/me')
   }
@@ -67,28 +60,25 @@ class ApiService {
     return this.request(`/api/users/leaderboard/${type}?limit=${limit}`)
   }
 
-  // ─── Quiz ─────────────────────────────────────────────────────────────────
+  // ─── Quiz ──────────────────────────────────────────────────────────────────
   async getCategories() {
     return this.request('/api/categories')
   }
 
   async startQuiz(params) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/api/quiz/start?${query}`)
+    const q = new URLSearchParams(params).toString()
+    return this.request(`/api/quiz/start?${q}`)
   }
 
   async submitAnswer(data) {
-    return this.request('/api/quiz/answer', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
+    return this.request('/api/quiz/answer', { method: 'POST', body: JSON.stringify(data) })
   }
 
-  // ─── Challenges ───────────────────────────────────────────────────────────
+  // ─── Challenges ────────────────────────────────────────────────────────────
   async getChallenges(status = null, page = 1) {
-    const query = new URLSearchParams({ page, limit: 10 })
-    if (status) query.set('status', status)
-    return this.request(`/api/challenges?${query}`)
+    const q = new URLSearchParams({ page, limit: 10 })
+    if (status) q.set('status', status)
+    return this.request(`/api/challenges?${q}`)
   }
 
   async getChallenge(id) {
@@ -99,17 +89,17 @@ class ApiService {
     return this.request(`/api/challenges/${id}/join`, { method: 'POST' })
   }
 
-  // ─── Admin ────────────────────────────────────────────────────────────────
+  // ─── Admin ─────────────────────────────────────────────────────────────────
   async getAdminStats() {
     return this.request('/api/admin/stats')
   }
 
   async searchUsers(query, page = 1) {
-    return this.request(`/api/admin/search?q=${query}&page=${page}&limit=20`)
+    return this.request(`/api/admin/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=20`)
   }
 
   async adjustBalance(userId, amount, operation, note) {
-    return this.request(`/api/admin/${userId}/balance`, {
+    return this.request(`/api/admin/users/${userId}/balance`, {
       method: 'PATCH',
       body: JSON.stringify({ amount, operation, note }),
     })
@@ -120,10 +110,7 @@ class ApiService {
   }
 
   async addChannel(data) {
-    return this.request('/api/admin/channels', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
+    return this.request('/api/admin/channels', { method: 'POST', body: JSON.stringify(data) })
   }
 
   async deleteChannel(id) {
@@ -135,29 +122,54 @@ class ApiService {
   }
 
   async createQuestion(data) {
-    return this.request('/api/admin/questions', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
+    return this.request('/api/admin/questions', { method: 'POST', body: JSON.stringify(data) })
   }
 
-  async getQuestions(params) {
-    const query = new URLSearchParams(params).toString()
-    return this.request(`/api/questions?${query}`)
+  async getQuestions(params = {}) {
+    const q = new URLSearchParams(params).toString()
+    return this.request(`/api/questions?${q}`)
+  }
+
+  async deleteQuestion(id) {
+    return this.request(`/api/admin/questions/${id}`, { method: 'DELETE' })
   }
 
   async createChallenge(data) {
-    return this.request('/api/admin/challenges', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
+    return this.request('/api/admin/challenges', { method: 'POST', body: JSON.stringify(data) })
   }
 
   async sendBroadcast(data) {
-    return this.request('/api/admin/broadcasts/send', {
+    return this.request('/api/admin/broadcasts/send', { method: 'POST', body: JSON.stringify(data) })
+  }
+
+  async adminGetChallenges() {
+    return this.request('/api/admin/challenges')
+  }
+
+  async startChallenge(id, durationMinutes) {
+    return this.request(`/api/admin/challenges/${id}/start`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ duration_minutes: durationMinutes }),
     })
+  }
+
+  async finishChallenge(id) {
+    return this.request(`/api/admin/challenges/${id}/finish`, { method: 'POST' })
+  }
+
+  async addParticipant(challengeId, telegramId) {
+    return this.request(`/api/admin/challenges/${challengeId}/add-participant`, {
+      method: 'POST',
+      body: JSON.stringify({ telegram_id: telegramId }),
+    })
+  }
+
+  async getParticipants(challengeId) {
+    return this.request(`/api/admin/challenges/${challengeId}/participants`)
+  }
+
+  async getBroadcasts() {
+    return this.request('/api/admin/broadcasts')
   }
 }
 
