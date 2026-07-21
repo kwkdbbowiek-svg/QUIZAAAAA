@@ -40,9 +40,18 @@ def is_admin(user: User) -> bool:
 @router.message(Command("admin"))
 async def admin_command(message: Message, user: User):
     """Admin panel"""
-    if not is_admin(user):
+    # DB'dan qayta tekshirish (cache muammosidan himoya)
+    async with AsyncSessionLocal() as session:
+        from sqlalchemy import select as sa_select
+        result = await session.execute(
+            sa_select(User).where(User.telegram_id == message.from_user.id)
+        )
+        db_user = result.scalar_one_or_none()
+
+    if not db_user or not is_admin(db_user):
+        await message.answer("⛔ Admin huquqlari talab etiladi.")
         return
-    
+
     await message.answer(
         "⚙️ <b>Admin Panel</b>\n\n"
         "Boshqaruv panelidan foydalanishingiz mumkin:",
