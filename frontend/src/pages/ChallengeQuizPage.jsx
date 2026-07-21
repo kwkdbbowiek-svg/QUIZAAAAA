@@ -113,7 +113,9 @@ export function ChallengeQuizPage({ challengeId, onBack }) {
       setFinished(true)
       await loadLeaderboard()
     } catch (err) {
-      alert('Xato: ' + err.message)
+      console.error('Submit xatosi:', err)
+      const errorMsg = err?.message || err?.detail || JSON.stringify(err) || 'Noma\'lum xato'
+      alert('Xato: ' + errorMsg)
     }
   }
 

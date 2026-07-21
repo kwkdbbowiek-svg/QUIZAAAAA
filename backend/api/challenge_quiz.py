@@ -218,10 +218,22 @@ async def start_challenge_quiz(
     }
 
 
+from pydantic import BaseModel
+from typing import List
+
+class AnswerSubmit(BaseModel):
+    question_id: int
+    selected_option: int
+    time_taken: float
+
+class AnswersSubmit(BaseModel):
+    answers: List[AnswerSubmit]
+
+
 @router.post("/{challenge_id}/submit")
 async def submit_challenge_answers(
     challenge_id: int,
-    answers: list,
+    data: AnswersSubmit,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -248,16 +260,18 @@ async def submit_challenge_answers(
     correct = 0
     total_time = 0.0
 
-    for answer in answers:
-        q_id = answer.get("question_id")
-        selected = answer.get("selected_option")
-        time_taken = answer.get("time_taken", 0)
+    for answer in data.answers:
+        q_id = answer.question_id
+        selected = answer.selected_option
+        time_taken = answer.time_taken
 
-        if q_id is None or selected is None:
+        if selected < 0:  # Javob bermagan
             continue
 
         q_result = await db.execute(select(Question).where(Question.id == q_id))
         question = q_result.scalar_one_or_none()
+        if not question:
+            continue
         if not question:
             continue
 
@@ -266,11 +280,11 @@ async def submit_challenge_answers(
             if is_correct:
                 score += 10
                 correct += 1
-        total_time += float(time_taken)
+        total_time += time_taken
 
     participant.score = score
     participant.correct_answers = correct
-    participant.total_answers = len(answers)
+    participant.total_answers = len(data.answers)
     participant.time_spent = total_time
     participant.finished = True
     participant.finished_at = datetime.now(timezone.utc)
@@ -278,7 +292,7 @@ async def submit_challenge_answers(
     # User statistikasini yangilash
     current_user.total_games += 1
     current_user.correct_answers += correct
-    current_user.total_answers += len(answers)
+    current_user.total_answers += len(data.answers)
 
     status = ch.status.value if hasattr(ch.status, 'value') else str(ch.status)
     await db.commit()
@@ -287,7 +301,7 @@ async def submit_challenge_answers(
         "success": True,
         "score": score,
         "correct": correct,
-        "total": len(answers),
+        "total": len(data.answers),
         "time_spent": total_time,
         "challenge_status": status,
         "message": "Javoblaringiz qabul qilindi! Challenge tugashini kuting." if status == "active" else "Challenge tugadi!",
