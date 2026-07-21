@@ -14,7 +14,8 @@ export default function AdminChallenges() {
     first_place_percent: 50, second_place_percent: 30,
     third_place_percent: 10, admin_commission: 10,
     total_questions: 20, time_per_question: 30,
-    max_participants: 1000, difficulty: 'medium'
+    max_participants: 1000, difficulty: 'medium',
+    category_id: null, starts_at: null
   })
 
   useEffect(() => { load() }, [])
@@ -36,15 +37,46 @@ export default function AdminChallenges() {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (Math.abs(totalPercent - 100) > 0.01) { setMsg(`Foizlar yig'indisi 100% bo'lishi kerak!`); return }
+    if (Math.abs(totalPercent - 100) > 0.01) { 
+      setMsg(`❌ Foizlar yig'indisi 100% bo'lishi kerak!`) 
+      return 
+    }
+    
     try {
-      await api.createChallenge(form)
+      // Ma'lumotlarni to'g'ri formatda yuborish
+      const challengeData = {
+        title: form.title.trim(),
+        description: form.description?.trim() || null,
+        entry_fee: Number(form.entry_fee) || 0,
+        min_prize_pool: Number(form.min_prize_pool) || 0,
+        first_place_percent: Number(form.first_place_percent),
+        second_place_percent: Number(form.second_place_percent),
+        third_place_percent: Number(form.third_place_percent),
+        admin_commission: Number(form.admin_commission),
+        total_questions: Number(form.total_questions),
+        time_per_question: Number(form.time_per_question),
+        max_participants: Number(form.max_participants),
+        difficulty: form.difficulty || 'medium',
+        category_id: form.category_id || null,
+        starts_at: form.starts_at || null
+      }
+      
+      await api.createChallenge(challengeData)
       setMsg('✅ Challenge yaratildi!')
       setShowForm(false)
+      setForm({
+        title: '', description: '', entry_fee: 0, min_prize_pool: 0,
+        first_place_percent: 50, second_place_percent: 30,
+        third_place_percent: 10, admin_commission: 10,
+        total_questions: 20, time_per_question: 30,
+        max_participants: 1000, difficulty: 'medium',
+        category_id: null, starts_at: null
+      })
       load()
     } catch (e) {
       const errMsg = e?.message || (typeof e === 'object' ? JSON.stringify(e) : String(e))
       setMsg('❌ ' + errMsg)
+      console.error('Challenge yaratish xatosi:', e)
     }
   }
 

@@ -337,6 +337,7 @@ async def admin_get_challenges(
         {
             "id": ch.id,
             "title": ch.title,
+            "description": ch.description,
             "status": ch.status.value if hasattr(ch.status, 'value') else ch.status,
             "entry_fee": ch.entry_fee,
             "prize_pool": ch.prize_pool,
@@ -344,10 +345,12 @@ async def admin_get_challenges(
             "max_participants": ch.max_participants,
             "starts_at": ch.starts_at,
             "ends_at": ch.ends_at,
-            "winners_paid": ch.winners_paid,
+            "winners_paid": ch.winners_paid or False,
             "first_place_percent": ch.first_place_percent,
             "second_place_percent": ch.second_place_percent,
             "third_place_percent": ch.third_place_percent,
+            "question_ids": ch.question_ids or [],
+            "total_questions": ch.total_questions,
         }
         for ch in challenges
     ]

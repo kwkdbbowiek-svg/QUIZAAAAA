@@ -318,6 +318,43 @@ async def admin_add_user_to_challenge(
     return {"success": True, "message": f"{user.full_name} challengega qo'shildi"}
 
 
+@router.put("/admin/challenges/{challenge_id}/questions")
+async def update_challenge_questions(
+    challenge_id: int,
+    question_ids: list[int] = Body(..., embed=True),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Admin: Challenge savollarini yangilash"""
+    result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = result.scalar_one_or_none()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge topilmadi")
+    
+    # Savollar mavjudligini tekshirish
+    if question_ids:
+        check_result = await db.execute(
+            select(Question).where(
+                and_(
+                    Question.id.in_(question_ids),
+                    Question.is_active == True
+                )
+            )
+        )
+        found_questions = check_result.scalars().all()
+        if len(found_questions) != len(question_ids):
+            raise HTTPException(status_code=400, detail="Ba'zi savollar topilmadi yoki faol emas")
+    
+    challenge.question_ids = question_ids
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Challenge'ga {len(question_ids)} ta savol qo'shildi",
+        "question_count": len(question_ids)
+    }
+
+
 # ─── Quiz O'tkazish ────────────────────────────────────────────────────────────
 
 @router.get("/quiz/start")
