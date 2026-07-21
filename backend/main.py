@@ -4,10 +4,11 @@ EduQuiz Platform - FastAPI Backend Entry Point
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from shared.config import settings
 from shared.database.base import create_tables
@@ -76,15 +77,30 @@ app.include_router(challenges.router)
 app.include_router(admin.router)
 
 
-# ─── Asosiy Endpoint'lar ──────────────────────────────────────────────────────
+# ─── Frontend Static Fayllar ──────────────────────────────────────────────────
+# React build fayllarini serve qilish
 
-@app.get("/")
-async def root():
-    return {
-        "app": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "status": "running",
-    }
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+
+if os.path.exists(FRONTEND_DIST):
+    # Static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+
+    # React Router uchun — barcha noma'lum route'larni index.html ga yo'naltirish
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str, request: Request):
+        # API route'larni o'tkazib yuborish
+        if full_path.startswith("api/") or full_path in ("health", "docs", "redoc"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+
+else:
+    logger.warning(f"⚠️ Frontend dist topilmadi: {FRONTEND_DIST}")
 
 
 @app.get("/health")
