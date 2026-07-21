@@ -12,15 +12,18 @@ export default function AdminUsers() {
   const search = async () => {
     if (!query.trim()) return
     setLoading(true)
-    try { setUsers(await api.searchUsers(query)) }
+    try { setUsers(await api.request(`/api/admin/users/search?q=${encodeURIComponent(query)}&page=1&limit=20`)) }
     finally { setLoading(false) }
   }
 
   const adjustBalance = async () => {
     if (!balanceForm.amount) return
     try {
-      const res = await api.adjustBalance(selected.id, +balanceForm.amount, balanceForm.operation, balanceForm.note)
-      setMsg(res.message)
+      const res = await api.request(`/api/admin/users/${selected.id}/balance`, {
+        method: 'PATCH',
+        body: JSON.stringify({ amount: +balanceForm.amount, operation: balanceForm.operation, note: balanceForm.note })
+      })
+      setMsg('✅ ' + (res.message || 'Balans yangilandi'))
       setSelected({ ...selected, balance: res.new_balance })
       setBalanceForm({ amount: '', operation: 'add', note: '' })
     } catch (e) { setMsg('Xato: ' + e.message) }
@@ -28,8 +31,11 @@ export default function AdminUsers() {
 
   const changeStatus = async (status) => {
     try {
-      await api.request(`/api/users/admin/${selected.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
-      setMsg('Status o\'zgartirildi')
+      await api.request(`/api/admin/users/${selected.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      })
+      setMsg('✅ Status o\'zgartirildi')
       setSelected({ ...selected, status })
     } catch (e) { setMsg('Xato: ' + e.message) }
   }

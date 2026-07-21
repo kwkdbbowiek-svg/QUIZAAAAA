@@ -40,7 +40,6 @@ def is_admin(user: User) -> bool:
 @router.message(Command("admin"))
 async def admin_command(message: Message, user: User):
     """Admin panel"""
-    # DB'dan qayta tekshirish (cache muammosidan himoya)
     async with AsyncSessionLocal() as session:
         from sqlalchemy import select as sa_select
         result = await session.execute(
@@ -52,10 +51,33 @@ async def admin_command(message: Message, user: User):
         await message.answer("⛔ Admin huquqlari talab etiladi.")
         return
 
+    from shared.config import settings as s
+    webapp = s.WEBAPP_URL.rstrip("/") if s.WEBAPP_URL else ""
+
+    rows = [
+        [
+            InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin_users"),
+            InlineKeyboardButton(text="📢 Kanallar", callback_data="admin_channels"),
+        ],
+        [
+            InlineKeyboardButton(text="❓ Savollar", callback_data="admin_questions"),
+            InlineKeyboardButton(text="🏆 Challengelar", callback_data="admin_challenges"),
+        ],
+        [
+            InlineKeyboardButton(text="📣 Broadcast", callback_data="admin_broadcast"),
+            InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
+        ],
+    ]
+    if webapp and "your-app" not in webapp:
+        from aiogram.types import WebAppInfo
+        rows.append([InlineKeyboardButton(
+            text="🌐 Admin Panel (Web)",
+            web_app=WebAppInfo(url=f"{webapp}/admin")
+        )])
+
     await message.answer(
-        "⚙️ <b>Admin Panel</b>\n\n"
-        "Boshqaruv panelidan foydalanishingiz mumkin:",
-        reply_markup=get_admin_panel_keyboard()
+        "⚙️ <b>Admin Panel</b>\n\nBoshqaruv panelidan foydalanishingiz mumkin:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
 
 
