@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY bot/ ./bot/
 COPY shared/ ./shared/
+COPY run.py ./run.py
 COPY alembic.ini .
 COPY alembic/ ./alembic/
 
@@ -53,6 +54,9 @@ COPY --from=python-base /usr/local/bin /usr/local/bin
 
 # Copy application
 COPY --from=python-base /app /app
+
+# run.py ni alohida copy qilish (root'da turadi)
+COPY run.py /app/run.py
 
 # Copy frontend build
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
