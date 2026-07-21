@@ -56,7 +56,8 @@ class AuthMiddleware(BaseMiddleware):
 
                 await session.commit()
                 await session.refresh(user)
+                # Session yopilgandan keyin ham user ob'ekti ishlashi uchun
+                session.expunge(user)
                 data["user"] = user
-                data["db"] = session
 
         return await handler(event, data)
