@@ -8,6 +8,18 @@ export function ProfilePage() {
   const [showTx, setShowTx] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // user null bo'lsa — token bilan profileni yuklab olish
+  const [profileData, setProfileData] = useState(null)
+  useEffect(() => {
+    if (user) {
+      setProfileData(user)
+    } else {
+      api.getProfile().then(setProfileData).catch(console.error)
+    }
+  }, [user])
+
+  const profile = profileData || user
+
   const loadTransactions = async () => {
     if (showTx) { setShowTx(false); return }
     setLoading(true)
@@ -20,29 +32,33 @@ export function ProfilePage() {
     }
   }
 
-  if (!user) return null
+  if (!profile) return (
+    <div className="flex justify-center items-center h-64">
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+    </div>
+  )
 
-  const levelProgress = getLevelProgress(user.xp_points, user.level)
+  const levelProgress = getLevelProgress(profile.xp_points, profile.level)
 
   return (
     <div className="p-4 max-w-md mx-auto space-y-4">
       {/* Header */}
       <div className="card text-center pt-6">
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl mx-auto mb-3">
-          {(user.first_name || 'U')[0].toUpperCase()}
+          {(profile.first_name || 'U')[0].toUpperCase()}
         </div>
-        <h2 className="text-xl font-bold text-white">{user.full_name}</h2>
-        {user.username && <p className="text-gray-400 text-sm">@{user.username}</p>}
+        <h2 className="text-xl font-bold text-white">{profile.full_name}</h2>
+        {profile.username && <p className="text-gray-400 text-sm">@{profile.username}</p>}
 
         {/* Level Badge */}
         <div className="level-badge mx-auto mt-2 w-fit">
-          🏅 Daraja {user.level}
+          🏅 Daraja {profile.level}
         </div>
 
         {/* XP Progress */}
         <div className="mt-3">
           <div className="flex justify-between text-xs text-gray-400 mb-1">
-            <span>XP: {user.xp_points}</span>
+            <span>XP: {profile.xp_points}</span>
             <span>Keyingi daraja: {levelProgress.next}</span>
           </div>
           <div className="w-full h-2 bg-gray-700 rounded-full">
@@ -57,19 +73,19 @@ export function ProfilePage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card text-center">
-          <div className="text-2xl font-bold text-green-400">{user.balance.toLocaleString()} so'm</div>
+          <div className="text-2xl font-bold text-green-400">{profile.balance.toLocaleString()} so'm</div>
           <div className="text-gray-400 text-sm mt-1">💰 Balans</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-yellow-400">{user.xp_points}</div>
+          <div className="text-2xl font-bold text-yellow-400">{profile.xp_points}</div>
           <div className="text-gray-400 text-sm mt-1">⭐ XP</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-blue-400">{user.total_games}</div>
+          <div className="text-2xl font-bold text-blue-400">{profile.total_games}</div>
           <div className="text-gray-400 text-sm mt-1">🎮 O'yinlar</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-purple-400">{user.accuracy}%</div>
+          <div className="text-2xl font-bold text-purple-400">{profile.accuracy}%</div>
           <div className="text-gray-400 text-sm mt-1">🎯 Aniqlik</div>
         </div>
       </div>
@@ -79,9 +95,9 @@ export function ProfilePage() {
         <h3 className="font-bold text-white mb-3">📊 Reyting O'rnim</h3>
         <div className="space-y-2">
           {[
-            { label: '📅 Kunlik', rank: user.daily_rank },
-            { label: '📆 Haftalik', rank: user.weekly_rank },
-            { label: '🌍 Umumiy', rank: user.global_rank },
+            { label: '📅 Kunlik', rank: profile.daily_rank },
+            { label: '📆 Haftalik', rank: profile.weekly_rank },
+            { label: '🌍 Umumiy', rank: profile.global_rank },
           ].map(({ label, rank }) => (
             <div key={label} className="flex justify-between items-center">
               <span className="text-gray-300 text-sm">{label}</span>
@@ -99,7 +115,7 @@ export function ProfilePage() {
           <div>
             <div className="text-gray-400 text-sm">💎 Jami yutuqlar</div>
             <div className="text-2xl font-bold text-white mt-1">
-              {user.total_winnings.toLocaleString()} so'm
+              {profile.total_winnings.toLocaleString()} so'm
             </div>
           </div>
           <div className="text-4xl">🏆</div>

@@ -23,7 +23,10 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Shaxsiy profil"""
-    ranks = await rating_service.get_user_ranks(current_user.telegram_id)
+    try:
+        ranks = await rating_service.get_user_ranks(current_user.telegram_id)
+    except Exception:
+        ranks = {"daily_rank": None, "weekly_rank": None, "global_rank": None}
     profile = UserProfile.model_validate(current_user)
     profile.daily_rank = ranks["daily_rank"]
     profile.weekly_rank = ranks["weekly_rank"]
