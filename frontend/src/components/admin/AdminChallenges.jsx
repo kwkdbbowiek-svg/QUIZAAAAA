@@ -42,7 +42,10 @@ export default function AdminChallenges() {
       setMsg('✅ Challenge yaratildi!')
       setShowForm(false)
       load()
-    } catch (e) { setMsg('Xato: ' + e.message) }
+    } catch (e) {
+      const errMsg = e?.message || (typeof e === 'object' ? JSON.stringify(e) : String(e))
+      setMsg('❌ ' + errMsg)
+    }
   }
 
   const startChallenge = async (id) => {

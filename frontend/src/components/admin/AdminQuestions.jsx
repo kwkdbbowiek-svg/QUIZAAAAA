@@ -24,9 +24,14 @@ export default function AdminQuestions() {
 
   const loadQuestions = async () => {
     setLoading(true)
-    try { setQuestions(await api.getQuestions({ page: 1, limit: 20 })) }
-    catch (e) { setMsg('Xato: ' + e.message) }
-    finally { setLoading(false) }
+    try {
+      const data = await api.getQuestions({ page: 1, limit: 50 })
+      setQuestions(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setMsg('❌ Savollarni yuklab bo\'lmadi: ' + (e?.message || String(e)))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleOption = (idx, field, val) => {
@@ -40,14 +45,25 @@ export default function AdminQuestions() {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (form.options.some(o => !o.text.trim())) { setMsg('Barcha javoblarni to\'ldiring'); return }
+    if (form.options.some(o => !o.text.trim())) { setMsg('❌ Barcha javob variantlarini to\'ldiring'); return }
+    if (!form.options.some(o => o.is_correct)) { setMsg('❌ Kamida 1 ta to\'g\'ri javob belgilang'); return }
     try {
-      await api.createQuestion({ ...form, category_id: form.category_id ? +form.category_id : null })
+      await api.createQuestion({
+        text: form.text,
+        difficulty: form.difficulty,
+        question_type: 'text',
+        category_id: form.category_id ? +form.category_id : null,
+        options: form.options,
+        explanation: form.explanation || null,
+      })
       setMsg('✅ Savol qo\'shildi!')
       setShowForm(false)
       setForm({ text: '', difficulty: 'medium', category_id: '', explanation: '', options: [{ text: '', is_correct: true }, { text: '', is_correct: false }, { text: '', is_correct: false }, { text: '', is_correct: false }] })
       loadQuestions()
-    } catch (e) { setMsg('Xato: ' + e.message) }
+    } catch (e) {
+      const errMsg = e?.message || (typeof e === 'object' ? JSON.stringify(e) : String(e))
+      setMsg('❌ ' + errMsg)
+    }
   }
 
   const deleteQ = async (id) => {

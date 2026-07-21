@@ -196,7 +196,7 @@ async def balance_menu(message: Message, user: User):
         f"Balansni to'ldirish uchun Admin bilan bog'laning:\n"
         f"💳 To'lov usullari: Click, Payme, Uzum Bank",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📞 Admin", url="https://t.me/admin_username")]
+            [InlineKeyboardButton(text="📞 @xasan_coder bilan bog'lanish", url="https://t.me/xasan_coder")]
         ])
     )
 

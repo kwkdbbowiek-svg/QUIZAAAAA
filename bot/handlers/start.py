@@ -190,5 +190,8 @@ async def help_handler(message: Message):
         "🏆 <b>Challenge</b> — Tanlovlarda qatnashish\n"
         "👤 <b>Profil</b> — Statistika va balans\n"
         "📊 <b>Reyting</b> — Top o'yinchilar\n\n"
-        "📞 Muammo bo'lsa: @xasan_coder"
+        "📞 Muammo bo'lsa: @xasan_coder",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📞 Admin bilan bog'lanish", url="https://t.me/xasan_coder")]
+        ])
     )

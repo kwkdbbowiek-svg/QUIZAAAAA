@@ -134,7 +134,7 @@ class Question(Base):
     explanation = Column(Text, nullable=True)
 
     # Har bir savol uchun vaqt (soniyada)
-    time_limit = Column(Integer, default=30)
+    time_limit = Column(Integer, default=30, nullable=True)
 
     times_asked = Column(Integer, default=0)
     correct_count = Column(Integer, default=0)
@@ -183,7 +183,7 @@ class Challenge(Base):
     difficulty = Column(Enum(DifficultyLevel), default=DifficultyLevel.MEDIUM)
 
     # Challenge savollari (JSON: list of question_ids)
-    question_ids = Column(JSON, default=list)
+    question_ids = Column(JSON, default=list, nullable=True)
 
     max_participants = Column(Integer, default=1000)
     current_participants = Column(Integer, default=0)
@@ -193,7 +193,7 @@ class Challenge(Base):
     status = Column(Enum(ChallengeStatus), default=ChallengeStatus.UPCOMING)
 
     # G'oliblar tayinlandimi
-    winners_paid = Column(Boolean, default=False)
+    winners_paid = Column(Boolean, default=False, nullable=True)
 
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

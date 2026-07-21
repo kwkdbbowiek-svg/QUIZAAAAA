@@ -77,19 +77,24 @@ async def create_question(
     db: AsyncSession = Depends(get_db)
 ):
     """Admin: yangi savol qo'shish"""
-    question = Question(
-        category_id=data.category_id,
-        question_type=data.question_type,
-        difficulty=data.difficulty,
-        text=data.text,
-        options=[o.model_dump() for o in data.options],
-        explanation=data.explanation,
-        created_by_admin=admin.id,
-    )
-    db.add(question)
-    await db.commit()
-    await db.refresh(question)
-    return question
+    try:
+        question = Question(
+            category_id=data.category_id,
+            question_type=data.question_type,
+            difficulty=data.difficulty,
+            text=data.text,
+            options=[o.model_dump() for o in data.options],
+            explanation=data.explanation,
+        )
+        db.add(question)
+        await db.commit()
+        await db.refresh(question)
+        return question
+    except Exception as e:
+        await db.rollback()
+        import logging
+        logging.getLogger(__name__).error(f"Savol qo'shish xatosi: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Savol qo'shishda xato: {str(e)}")
 
 
 @router.put("/admin/questions/{question_id}")
@@ -199,6 +204,8 @@ async def create_challenge(
         max_participants=data.max_participants,
         starts_at=data.starts_at,
         created_by=admin.id,
+        winners_paid=False,
+        question_ids=[],
     )
     db.add(challenge)
     await db.commit()

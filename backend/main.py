@@ -14,7 +14,7 @@ import os
 import time
 
 from shared.config import settings
-from shared.database.base import create_tables
+from shared.database.base import create_tables, alter_tables
 from shared.database.redis_client import get_redis, close_redis
 from backend.api import auth, users, challenges, admin
 from backend.services.challenge_service import ChallengeScheduler
@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 EduQuiz Platform ishga tushmoqda...")
     try:
         await create_tables()
+        await alter_tables()
         logger.info("✅ Database tayyorlandi")
     except Exception as e:
         logger.warning(f"⚠️ Database: {e}")
