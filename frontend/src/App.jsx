@@ -79,6 +79,31 @@ export default function App() {
     )
   }
 
+  // Telegram WebApp yo'q (brauzerda ochilgan)
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen p-6">
+        <div className="card text-center space-y-4 max-w-sm w-full">
+          <div className="text-6xl">🎓</div>
+          <h1 className="text-2xl font-bold text-white">EduQuiz Platform</h1>
+          <p className="text-gray-400 text-sm">
+            Bu platforma Telegram Mini App sifatida ishlaydi.
+          </p>
+          <div className="card bg-blue-900/30 text-left space-y-2">
+            <p className="text-white text-sm font-bold">Ishlatish uchun:</p>
+            <p className="text-gray-300 text-sm">1. Telegram'da <b>@portal112bot</b> ni oching</p>
+            <p className="text-gray-300 text-sm">2. <b>/start</b> yuboring</p>
+            <p className="text-gray-300 text-sm">3. <b>👤 Profilim</b> tugmasini bosing</p>
+          </div>
+          <a href="https://t.me/portal112bot"
+            className="btn-primary w-full block text-center py-3">
+            📱 Botga o'tish
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   const pages = {
     profile: <ProfilePage />,
     quiz: <QuizPage />,
