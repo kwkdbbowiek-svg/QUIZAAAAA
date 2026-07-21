@@ -14,17 +14,43 @@ from shared.database.redis_client import get_redis, RatingService
 router = Router(name="profile")
 
 
+def _is_webapp_ready() -> bool:
+    """WEBAPP_URL to'g'ri sozlanganmi"""
+    url = settings.WEBAPP_URL
+    return (
+        url
+        and url.startswith("https://")
+        and "your-app" not in url
+        and "localhost" not in url
+    )
+
+
+def _build_profile_keyboard(webapp_ready: bool) -> InlineKeyboardMarkup:
+    """Profil klaviaturasi — WEBAPP_URL ga qarab Web App yoki oddiy tugma"""
+    rows = []
+    if webapp_ready:
+        rows.append([
+            InlineKeyboardButton(
+                text="🌐 Web Profilni ochish",
+                web_app={"url": f"{settings.WEBAPP_URL}/profile"}
+            )
+        ])
+    rows.append([InlineKeyboardButton(text="💰 Balans tarixi", callback_data="profile_transactions")])
+    rows.append([InlineKeyboardButton(text="📊 Reyting", callback_data="leaderboard_main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 @router.message(F.text == "👤 Profilim")
 async def show_profile(message: Message, user: User):
     """Shaxsiy profil"""
     redis = await get_redis()
     rating_service = RatingService(redis)
     ranks = await rating_service.get_user_ranks(user.telegram_id)
-    
+
     rank_text = ""
     if ranks["global_rank"]:
         rank_text = f"\n🏆 Umumiy reyting: <b>{ranks['global_rank']}-o'rin</b>"
-    
+
     text = (
         f"👤 <b>Shaxsiy Profil</b>\n\n"
         f"👨‍💼 Ism: <b>{user.full_name}</b>\n"
@@ -40,19 +66,8 @@ async def show_profile(message: Message, user: User):
         f"🎯 Aniqlik: <b>{user.accuracy}%</b>\n"
         f"💎 Jami yutuqlar: <b>{user.total_winnings:,.0f} so'm</b>"
     )
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="🌐 Web Profilni ochish",
-                web_app={"url": f"{settings.WEBAPP_URL}/profile"}
-            )
-        ],
-        [InlineKeyboardButton(text="💰 Balans tarixi", callback_data="profile_transactions")],
-        [InlineKeyboardButton(text="📊 Reyting", callback_data="leaderboard_main")],
-    ])
-    
-    await message.answer(text, reply_markup=keyboard)
+
+    await message.answer(text, reply_markup=_build_profile_keyboard(_is_webapp_ready()))
 
 
 @router.callback_query(F.data == "profile_transactions")
@@ -66,32 +81,30 @@ async def show_transactions(callback: CallbackQuery, user: User):
             .limit(10)
         )
         transactions = result.scalars().all()
-    
+
     if not transactions:
         await callback.answer("Hali tranzaksiyalar mavjud emas", show_alert=True)
         return
-    
+
     text = "💰 <b>Balans tarixi (oxirgi 10 ta)</b>\n\n"
-    
+
+    type_emojis = {
+        "deposit": "➕",
+        "withdraw": "➖",
+        "challenge_entry": "🎮",
+        "challenge_win": "🏆",
+        "refund": "↩️",
+        "admin_adjust": "⚙️",
+    }
+
     for tx in transactions:
-        emoji = {
-            "deposit": "➕",
-            "withdraw": "➖",
-            "challenge_entry": "🎮",
-            "challenge_win": "🏆",
-            "refund": "↩️",
-            "admin_adjust": "⚙️",
-        }.get(tx.type.value, "•")
-        
+        emoji = type_emojis.get(tx.type.value if hasattr(tx.type, "value") else tx.type, "•")
         date_str = tx.created_at.strftime("%d.%m %H:%M")
-        amount_text = f"{'+' if tx.amount > 0 else ''}{tx.amount:,.0f}"
-        
-        text += (
-            f"{emoji} <b>{amount_text}</b> so'm\n"
-            f"   {tx.description or tx.type.value}\n"
-            f"   {date_str}\n\n"
-        )
-    
+        sign = "+" if tx.amount > 0 else ""
+        amount_text = f"{sign}{tx.amount:,.0f}"
+        desc = tx.description or (tx.type.value if hasattr(tx.type, "value") else str(tx.type))
+        text += f"{emoji} <b>{amount_text}</b> so'm\n   {desc}\n   {date_str}\n\n"
+
     await callback.message.edit_text(
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -110,9 +123,8 @@ async def show_leaderboard_menu(event, user: User):
         [InlineKeyboardButton(text="📆 Haftalik Reyting", callback_data="leaderboard_weekly")],
         [InlineKeyboardButton(text="🌍 Umumiy Reyting", callback_data="leaderboard_global")],
     ])
-    
     text = "📊 <b>Reyting Ro'yxati</b>\n\nQaysi reytingni ko'rmoqchisiz?"
-    
+
     if isinstance(event, Message):
         await event.answer(text, reply_markup=keyboard)
     else:
@@ -124,52 +136,48 @@ async def show_leaderboard_menu(event, user: User):
 async def show_leaderboard(callback: CallbackQuery, user: User):
     """Reyting ro'yxatini ko'rsatish"""
     board_type = callback.data.replace("leaderboard_", "")
-    
+
     if board_type == "main":
         await show_leaderboard_menu(callback, user)
         return
-    
+
     redis = await get_redis()
     rating_service = RatingService(redis)
-    
     top_users = await rating_service.get_top_users(board_type, limit=20)
-    
+
     if not top_users:
         await callback.answer("Hali reyting mavjud emas", show_alert=True)
         return
-    
-    # Foydalanuvchi ma'lumotlarini olish
+
     async with AsyncSessionLocal() as session:
         user_ids = [u["user_id"] for u in top_users]
         result = await session.execute(select(User).where(User.telegram_id.in_(user_ids)))
         users_map = {u.telegram_id: u for u in result.scalars().all()}
-    
-    title = {
+
+    titles = {
         "daily": "📅 Kunlik Reyting",
         "weekly": "📆 Haftalik Reyting",
-        "global": "🌍 Umumiy Reyting"
-    }.get(board_type, "Reyting")
-    
+        "global": "🌍 Umumiy Reyting",
+    }
+    title = titles.get(board_type, "Reyting")
     text = f"<b>{title}</b>\n━━━━━━━━━━━━━━━\n\n"
-    
     medals = ["🥇", "🥈", "🥉"]
+
     for idx, item in enumerate(top_users, 1):
         db_user = users_map.get(item["user_id"])
         if db_user:
-            medal = medals[idx-1] if idx <= 3 else f"{idx}."
+            medal = medals[idx - 1] if idx <= 3 else f"{idx}."
             name = db_user.full_name[:20]
             if db_user.telegram_id == user.telegram_id:
                 name = f"<b>{name} (Siz)</b>"
             text += f"{medal} {name} — {item['score']} XP\n"
-    
-    # Foydalanuvchining o'rni
+
     ranks = await rating_service.get_user_ranks(user.telegram_id)
     rank_key = f"{board_type}_rank"
     user_rank = ranks.get(rank_key)
     if user_rank and user_rank > 20:
-        text += f"\n━━━━━━━━━━━━━━━\n"
-        text += f"Sizning o'rningiz: <b>{user_rank}</b>"
-    
+        text += f"\n━━━━━━━━━━━━━━━\nSizning o'rningiz: <b>{user_rank}</b>"
+
     await callback.message.edit_text(
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -182,17 +190,13 @@ async def show_leaderboard(callback: CallbackQuery, user: User):
 
 @router.message(F.text == "💰 Balans")
 async def balance_menu(message: Message, user: User):
-    """Balans to'ldirish"""
+    """Balans ko'rish"""
     await message.answer(
-        f"💰 <b>Balans: {user.balance:,.0f} so'm</b>\n\n"
+        f"💰 <b>Balansingiz: {user.balance:,.0f} so'm</b>\n\n"
         f"Balansni to'ldirish uchun Admin bilan bog'laning:\n"
-        f"👤 @admin_username\n\n"
-        f"💳 To'lov usullari:\n"
-        f"• Click\n"
-        f"• Payme\n"
-        f"• Uzum Bank",
+        f"💳 To'lov usullari: Click, Payme, Uzum Bank",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📞 Admin bilan bog'lanish", url="https://t.me/admin_username")]
+            [InlineKeyboardButton(text="📞 Admin", url="https://t.me/admin_username")]
         ])
     )
 
@@ -224,14 +228,5 @@ async def back_to_profile(callback: CallbackQuery, user: User):
         f"💎 Jami yutuqlar: <b>{user.total_winnings:,.0f} so'm</b>"
     )
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🌐 Web Profilni ochish",
-            web_app={"url": f"{settings.WEBAPP_URL}/profile"}
-        )],
-        [InlineKeyboardButton(text="💰 Balans tarixi", callback_data="profile_transactions")],
-        [InlineKeyboardButton(text="📊 Reyting", callback_data="leaderboard_main")],
-    ])
-
-    await callback.message.answer(text, reply_markup=keyboard)
+    await callback.message.answer(text, reply_markup=_build_profile_keyboard(_is_webapp_ready()))
     await callback.answer()

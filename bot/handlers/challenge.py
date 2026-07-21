@@ -109,15 +109,19 @@ async def view_challenge(callback: CallbackQuery, user: User):
     keyboard = []
     
     if is_participant:
-        keyboard.append([
-            InlineKeyboardButton(
-                text="🎮 Challengega kirish",
-                web_app={"url": f"https://t.me/YourBot/app?startapp=challenge_{challenge_id}"}
-            )
-        ])
-        keyboard.append([
-            InlineKeyboardButton(text="✅ Siz allaqachon ishtirokchisiz", callback_data="noop")
-        ])
+        from bot.keyboards.main_menu import _webapp_url
+        webapp = _webapp_url()
+        if webapp:
+            keyboard.append([
+                InlineKeyboardButton(
+                    text="🎮 Challengega kirish",
+                    web_app={"url": f"{webapp}/challenge/{challenge_id}"}
+                )
+            ])
+        else:
+            keyboard.append([
+                InlineKeyboardButton(text="✅ Siz ishtirokchisiz", callback_data="noop")
+            ])
     elif challenge.status.value in ("upcoming", "active"):
         if challenge.current_participants < challenge.max_participants:
             keyboard.append([
