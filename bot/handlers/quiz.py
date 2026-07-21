@@ -264,17 +264,21 @@ async def process_quiz_answer(callback: CallbackQuery, user: User):
             rating_service = RatingService(redis)
             await rating_service.update_score(user.telegram_id, xp_earned)
             await cache.delete_quiz_state(user.telegram_id)
-            
+
             accuracy = round(state["correct"] / len(state["questions"]) * 100)
-            
+            congrats = "🏆 Ajoyib natija!" if accuracy >= 80 else "📚 Ko'proq mashq qiling!"
+            correct_count = state['correct']
+            total_count = len(state['questions'])
+            score_val = state['score']
+
             await callback.message.answer(result_text)
             await callback.message.answer(
                 f"🎉 <b>Quiz yakunlandi!</b>\n\n"
-                f"✅ To'g'ri javoblar: <b>{state['correct']}/{len(state['questions'])}</b>\n"
-                f"💯 Ball: <b>{state['score']}</b>\n"
+                f"✅ To'g'ri javoblar: <b>{correct_count}/{total_count}</b>\n"
+                f"💯 Ball: <b>{score_val}</b>\n"
                 f"🎯 Aniqlik: <b>{accuracy}%</b>\n"
                 f"⭐ Qozonilgan XP: <b>+{xp_earned}</b>\n\n"
-                f"{'🏆 Ajoyib natija!' if accuracy >= 80 else '📚 Ko\'proq mashq qiling!'}\n\n"
+                f"{congrats}\n\n"
                 f"Yana bir quiz ishlashni xohlaysizmi?",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔄 Qaytadan", callback_data="quiz_again")],
