@@ -9,7 +9,6 @@ from datetime import datetime
 
 from shared.database.base import AsyncSessionLocal
 from shared.database.models import User, Challenge, ChallengeParticipant, Transaction, TransactionType
-from bot.keyboards.main_menu import get_challenge_webapp_button
 
 router = Router(name="challenge")
 
