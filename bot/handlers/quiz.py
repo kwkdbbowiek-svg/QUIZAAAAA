@@ -203,10 +203,10 @@ async def process_quiz_answer(callback: CallbackQuery, user: User):
         
         # Javob natijasi
         correct_text = next((o["text"] for o in question.options if o.get("is_correct")), "")
-        result_text = (
-            f"{'✅ To\'g\'ri!' if is_correct else '❌ Noto\'g\'ri!'}\n"
-            f"{'✅' if is_correct else '❌'} To'g'ri javob: <b>{correct_text}</b>"
-        )
+        if is_correct:
+            result_text = f"✅ To'g'ri!\n✅ To'g'ri javob: <b>{correct_text}</b>"
+        else:
+            result_text = f"❌ Noto'g'ri!\n❌ To'g'ri javob: <b>{correct_text}</b>"
         if question.explanation:
             result_text += f"\n\n💡 <i>{question.explanation}</i>"
         
