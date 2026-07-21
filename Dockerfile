@@ -1,7 +1,7 @@
 # Multi-stage Docker build for Railway.app
 
 # ========== Python Backend & Bot ==========
-FROM python:3.11-slim as python-base
+FROM python:3.11-slim AS python-base
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY alembic.ini .
 COPY alembic/ ./alembic/
 
 # ========== Frontend Build ==========
-FROM node:18-alpine as frontend-build
+FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
@@ -36,7 +36,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ========== Final Stage ==========
-FROM python:3.11-slim
+FROM python:3.11-slim AS final
 
 WORKDIR /app
 
@@ -72,7 +72,7 @@ EXPOSE 8000 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Default command (overridden by Procfile/railway.toml)
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command
+CMD ["python", "run.py"]
