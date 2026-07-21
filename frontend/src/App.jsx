@@ -24,19 +24,19 @@ export default function App() {
   const initApp = async () => {
     try {
       const tg = window.Telegram?.WebApp
-      
+
       if (!tg?.initData) {
-        // Development mode
-        console.warn('Telegram WebApp mavjud emas - development mode')
-        setError('Bu sahifa Telegram orqali ochilishi kerak')
+        // Development mode yoki brauzerda ochilganda
+        console.warn('Telegram WebApp mavjud emas - API token bilan urinish')
+        // Brauzerda ochilganda demo profil ko'rsatish
+        setError(null)
         setLoading(false)
         return
       }
 
       const response = await api.auth(tg.initData)
       setUser(response.user)
-      
-      // Admin sahifasiga yo'naltirish
+
       const urlParams = new URLSearchParams(window.location.search)
       if (urlParams.get('page') === 'admin' && response.user?.is_admin) {
         setActivePage('admin')
