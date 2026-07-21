@@ -84,9 +84,10 @@ async def view_challenge(callback: CallbackQuery, user: User):
     fee_text = f"{challenge.entry_fee:,.0f} so'm" if challenge.entry_fee > 0 else "🎁 Bepul"
     prize_text = f"{challenge.prize_pool:,.0f} so'm"
     
+    no_desc = "Tavsif yo'q"
     text = (
         f"🏆 <b>{challenge.title}</b>\n\n"
-        f"📋 {challenge.description or 'Tavsif yo\'q'}\n\n"
+        f"📋 {challenge.description or no_desc}\n\n"
         f"━━━━━━━━━━━━━━━\n"
         f"💵 Kirish: <b>{fee_text}</b>\n"
         f"🏅 Sovrin fondi: <b>{prize_text}</b>\n"

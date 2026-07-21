@@ -102,9 +102,10 @@ async def admin_channels(callback: CallbackQuery, user: User):
         for ch in channels:
             status = "✅" if ch.is_active else "❌"
             text += f"{status} {ch.channel_name} (<code>{ch.channel_id}</code>)\n"
+            btn_label = f"🔴 O'chirish - {ch.channel_name}" if ch.is_active else f"🟢 Yoqish - {ch.channel_name}"
             keyboard.append([
                 InlineKeyboardButton(
-                    text=f"{'🔴 O\'chirish' if ch.is_active else '🟢 Yoqish'} - {ch.channel_name}",
+                    text=btn_label,
                     callback_data=f"channel_toggle_{ch.id}"
                 ),
                 InlineKeyboardButton(text="🗑", callback_data=f"channel_delete_{ch.id}")
