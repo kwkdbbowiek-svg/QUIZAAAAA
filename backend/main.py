@@ -17,6 +17,7 @@ from shared.config import settings
 from shared.database.base import create_tables, alter_tables
 from shared.database.redis_client import get_redis, close_redis
 from backend.api import auth, users, challenges, admin
+from backend.api.challenge_quiz import router as challenge_quiz_router
 from backend.services.challenge_service import ChallengeScheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -137,6 +138,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(challenges.router)
 app.include_router(admin.router)
+app.include_router(challenge_quiz_router)
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────

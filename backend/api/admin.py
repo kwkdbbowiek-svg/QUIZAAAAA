@@ -2,7 +2,7 @@
 Admin Panel API
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_
 from datetime import datetime, timezone
@@ -87,20 +87,37 @@ async def add_channel(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Yangi majburiy kanal qo'shish"""
+    # Channel ID formatini tekshirish
+    if not (channel_id.startswith('@') or channel_id.startswith('-100') or channel_id.lstrip('-').isdigit()):
+        raise HTTPException(
+            status_code=400, 
+            detail="Kanal ID noto'g'ri formatda. @username yoki -100... formatida bo'lishi kerak"
+        )
+    
+    # Mavjud kanallarni tekshirish
     existing = await db.execute(
         select(RequiredChannel).where(RequiredChannel.channel_id == channel_id)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Bu kanal allaqachon qo'shilgan")
+    
     channel = RequiredChannel(
         channel_id=channel_id,
         channel_name=channel_name,
-        channel_link=channel_link,
+        channel_link=channel_link or None,
     )
     db.add(channel)
     await db.commit()
     await db.refresh(channel)
-    return {"id": channel.id, "channel_name": channel.channel_name, "is_active": channel.is_active}
+    
+    return {
+        "id": channel.id, 
+        "channel_id": channel.channel_id,
+        "channel_name": channel.channel_name, 
+        "channel_link": channel.channel_link,
+        "is_active": channel.is_active
+    }
 
 
 @router.delete("/channels/{channel_id}")

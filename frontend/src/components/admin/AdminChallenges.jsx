@@ -73,15 +73,40 @@ export default function AdminChallenges() {
   const addParticipant = async (challengeId) => {
     if (!addTgId) return
     try {
-      const res = await api.request(`/api/admin/challenges/${challengeId}/add-participant`, {
-        method: 'POST',
-        body: JSON.stringify({ telegram_id: parseInt(addTgId) })
-      })
-      setMsg(res.message)
+      const res = await api.addParticipant(challengeId, parseInt(addTgId))
+      setMsg(res.message || '✅ Qo\'shildi')
       setAddTgId('')
       loadParticipants(challengeId)
       load()
-    } catch (e) { setMsg('Xato: ' + e.message) }
+    } catch (e) { setMsg('❌ ' + (e?.message || String(e))) }
+  }
+
+  // Challenge savollarini boshqarish
+  const [challengeQuestions, setChallengeQuestions] = useState([])
+  const [allQuestions, setAllQuestions] = useState([])
+  const [showAddQ, setShowAddQ] = useState(false)
+
+  const loadChallengeQuestions = async (ch) => {
+    try {
+      const allQ = await api.getQuestions({ page: 1, limit: 100 })
+      setAllQuestions(Array.isArray(allQ) ? allQ : [])
+      const ids = ch.question_ids || []
+      setChallengeQuestions(ids)
+    } catch (e) { console.error(e) }
+  }
+
+  const toggleQuestion = async (challengeId, questionId, currentIds) => {
+    const newIds = currentIds.includes(questionId)
+      ? currentIds.filter(id => id !== questionId)
+      : [...currentIds, questionId]
+    try {
+      await api.request(`/api/admin/challenges/${challengeId}/questions`, {
+        method: 'PUT',
+        body: JSON.stringify({ question_ids: newIds })
+      })
+      setChallengeQuestions(newIds)
+      setMsg(newIds.includes(questionId) ? '✅ Savol qo\'shildi' : '✅ Savol olib tashlandi')
+    } catch (e) { setMsg('❌ ' + (e?.message || String(e))) }
   }
 
   const statusColor = (s) => ({
@@ -95,7 +120,7 @@ export default function AdminChallenges() {
   if (selected) {
     return (
       <div className="space-y-3">
-        <button onClick={() => { setSelected(null); setParticipants([]) }} className="text-blue-400 text-sm">◀️ Orqaga</button>
+        <button onClick={() => { setSelected(null); setParticipants([]); setChallengeQuestions([]); setAllQuestions([]) }} className="text-blue-400 text-sm">◀️ Orqaga</button>
         <div className="card">
           <div className="flex justify-between items-start">
             <div>
@@ -108,9 +133,7 @@ export default function AdminChallenges() {
             </div>
           </div>
           {selected.ends_at && (
-            <div className="text-xs text-gray-400 mt-2">
-              Tugash: {new Date(selected.ends_at).toLocaleString('uz-UZ')}
-            </div>
+            <div className="text-xs text-gray-400 mt-2">Tugash: {new Date(selected.ends_at).toLocaleString('uz-UZ')}</div>
           )}
         </div>
 
@@ -139,6 +162,43 @@ export default function AdminChallenges() {
           )}
           {selected.winners_paid && (
             <div className="text-green-400 text-sm text-center">✅ G'oliblarga pul to'langan</div>
+          )}
+        </div>
+
+        {/* Challengega Savollar qo'shish */}
+        <div className="card space-y-2">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-white text-sm">❓ Challenge Savollari ({challengeQuestions.length})</h3>
+            <button onClick={() => {
+              setShowAddQ(!showAddQ)
+              if (!showAddQ && allQuestions.length === 0) loadChallengeQuestions(selected)
+            }} className="text-blue-400 text-xs">
+              {showAddQ ? '▲ Yopish' : '➕ Savol qo\'shish'}
+            </button>
+          </div>
+          {showAddQ && (
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {allQuestions.length === 0 && (
+                <p className="text-gray-400 text-xs text-center py-2">Hali savollar yo'q</p>
+              )}
+              {allQuestions.map(q => {
+                const isAdded = challengeQuestions.includes(q.id)
+                return (
+                  <div key={q.id}
+                    onClick={() => toggleQuestion(selected.id, q.id, challengeQuestions)}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${isAdded ? 'bg-green-500/20 border border-green-500/40' : 'bg-white/5 hover:bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full flex-shrink-0 ${isAdded ? 'bg-green-500' : 'bg-gray-600'}`} />
+                    <span className="text-white text-xs truncate">{q.text?.slice(0, 60)}</span>
+                    <span className={`text-xs flex-shrink-0 px-1 rounded ${q.difficulty === 'easy' ? 'text-green-400' : q.difficulty === 'hard' ? 'text-red-400' : 'text-yellow-400'}`}>
+                      {q.difficulty}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {challengeQuestions.length > 0 && !showAddQ && (
+            <p className="text-gray-400 text-xs">{challengeQuestions.length} ta savol tanlangan ✅</p>
           )}
         </div>
 

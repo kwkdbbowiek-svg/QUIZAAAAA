@@ -13,6 +13,7 @@ from shared.database.base import AsyncSessionLocal
 from shared.database.models import User, RequiredChannel
 from shared.config import settings
 from bot.keyboards.main_menu import get_main_menu, get_contact_button
+from bot.utils.channel_helper import format_channel_link, check_user_subscription
 
 router = Router(name="start")
 
@@ -31,20 +32,21 @@ def _webapp_url() -> str:
 
 async def check_subscriptions(bot, telegram_id: int) -> list:
     """Foydalanuvchi obuna bo'lmagan kanallarni qaytarish"""
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(RequiredChannel).where(RequiredChannel.is_active == True)
-        )
-        channels = result.scalars().all()
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(RequiredChannel).where(RequiredChannel.is_active == True)
+            )
+            channels = result.scalars().all()
+    except Exception as e:
+        # Database xatosi bo'lsa, bo'sh list qaytarish (obuna tekshirmaslik)
+        return []
 
     unsubscribed = []
     for ch in channels:
-        try:
-            member = await bot.get_chat_member(ch.channel_id, telegram_id)
-            if member.status in ("left", "kicked"):
-                unsubscribed.append(ch)
-        except Exception:
-            pass
+        is_subscribed = await check_user_subscription(bot, ch.channel_id, telegram_id)
+        if not is_subscribed:
+            unsubscribed.append(ch)
     return unsubscribed
 
 
@@ -52,14 +54,15 @@ async def send_subscription_message(message: Message, unsubscribed: list):
     """Obuna bo'lish tugmalarini yuborish"""
     keyboard = []
     for ch in unsubscribed:
-        link = ch.channel_link or f"https://t.me/{ch.channel_id.lstrip('@')}"
+        link = format_channel_link(ch.channel_id, ch.channel_link)
         keyboard.append([InlineKeyboardButton(text=f"📢 {ch.channel_name}", url=link)])
+    
     keyboard.append([InlineKeyboardButton(text="✅ Obuna bo'ldim", callback_data="check_subscription")])
 
     await message.answer(
-        "⚠️ <b>Botdan foydalanish uchun obuna bo'ling:</b>\n\n"
+        "⚠️ <b>Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:</b>\n\n"
         + "\n".join(f"• {ch.channel_name}" for ch in unsubscribed)
-        + "\n\n✅ Obuna bo'lgandan so'ng tugmani bosing.",
+        + "\n\n✅ Obuna bo'lgandan so'ng pastdagi tugmani bosing.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )
 
@@ -68,12 +71,7 @@ async def send_subscription_message(message: Message, unsubscribed: list):
 async def cmd_start(message: Message, user: User, state: FSMContext):
     await state.clear()
 
-    # Obunani tekshirish
-    unsubscribed = await check_subscriptions(message.bot, user.telegram_id)
-    if unsubscribed:
-        await send_subscription_message(message, unsubscribed)
-        return
-
+    # Agar ro'yxatdan o'tmagan bo'lsa, obuna tekshirmasdan ro'yxatdan o'tkazish
     if not user.is_registered:
         await message.answer(
             f"🎓 <b>EduQuiz Platform'ga xush kelibsiz!</b>\n\n"
@@ -82,26 +80,34 @@ async def cmd_start(message: Message, user: User, state: FSMContext):
             f"<i>Masalan: Sardor Toshmatov</i>",
         )
         await state.set_state(RegistrationStates.waiting_for_name)
-    else:
-        webapp = _webapp_url()
-        rows = []
-        if webapp:
-            rows.append([InlineKeyboardButton(
-                text="🌐 Profilimni ochish",
-                web_app=WebAppInfo(url=f"{webapp}/profile")
-            )])
+        return
 
+    # Ro'yxatdan o'tgan bo'lsa, obunani tekshirish
+    unsubscribed = await check_subscriptions(message.bot, user.telegram_id)
+    if unsubscribed:
+        await send_subscription_message(message, unsubscribed)
+        return
+
+    # Barcha tekshiruvlar o'tdi - asosiy menyu
+    webapp = _webapp_url()
+    rows = []
+    if webapp:
+        rows.append([InlineKeyboardButton(
+            text="🌐 Profilimni ochish",
+            web_app=WebAppInfo(url=f"{webapp}/profile")
+        )])
+
+    await message.answer(
+        f"👋 Xush kelibsiz, <b>{user.full_name}</b>!\n\n"
+        f"💰 Balans: <b>{user.balance:,.0f} so'm</b>\n"
+        f"⭐ XP: <b>{user.xp_points}</b> | 🏅 Daraja: <b>{user.level}</b>",
+        reply_markup=get_main_menu()
+    )
+    if rows:
         await message.answer(
-            f"👋 Xush kelibsiz, <b>{user.full_name}</b>!\n\n"
-            f"💰 Balans: <b>{user.balance:,.0f} so'm</b>\n"
-            f"⭐ XP: <b>{user.xp_points}</b> | 🏅 Daraja: <b>{user.level}</b>",
-            reply_markup=get_main_menu()
+            "Web panelni ochish uchun:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
         )
-        if rows:
-            await message.answer(
-                "Web panelni ochish uchun:",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
-            )
 
 
 @router.message(RegistrationStates.waiting_for_name)
@@ -140,6 +146,20 @@ async def process_phone(message: Message, user: User, state: FSMContext):
 
     await state.clear()
 
+    # Ro'yxatdan o'tgandan so'ng obunani tekshirish
+    unsubscribed = await check_subscriptions(message.bot, user.telegram_id)
+    if unsubscribed:
+        await message.answer(
+            f"🎉 <b>Ro'yxatdan o'tish yakunlandi!</b>\n\n"
+            f"👤 {state_data.get('first_name')} {state_data.get('last_name')}\n"
+            f"📱 {phone}\n\n"
+            f"Endi botdan foydalanish uchun quyidagi kanallarga obuna bo'lishingiz kerak.",
+            reply_markup=get_main_menu()
+        )
+        await send_subscription_message(message, unsubscribed)
+        return
+
+    # Barcha tekshiruvlar o'tdi
     webapp = _webapp_url()
     rows = []
     if webapp:
