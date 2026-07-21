@@ -11,10 +11,24 @@ export function AdminLoginPage({ onLogin }) {
     setLoading(true)
     setError('')
     try {
-      const data = await api.adminLogin(form.username, form.password)
+      const res = await fetch('/api/auth/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: form.username, password: form.password })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || `Server xatosi: ${res.status}`)
+      }
+      // Tokenni saqlash
+      localStorage.setItem('token', data.access_token)
       onLogin(data.user)
     } catch (err) {
-      setError(err.message || 'Login yoki parol noto\'g\'ri')
+      if (err.message === 'Failed to fetch') {
+        setError('Server bilan aloqa yo\'q. Sahifani yangilang.')
+      } else {
+        setError(err.message || 'Login yoki parol noto\'g\'ri')
+      }
     } finally {
       setLoading(false)
     }

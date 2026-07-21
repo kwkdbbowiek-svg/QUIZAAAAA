@@ -88,22 +88,25 @@
       }
     });
 
-    // DevTools ochilishini aniqlash
-    let devtools = { open: false };
-    const threshold = 160;
-    setInterval(function() {
-      if (
-        window.outerWidth - window.innerWidth > threshold ||
-        window.outerHeight - window.innerHeight > threshold
-      ) {
-        if (!devtools.open) {
-          devtools.open = true;
-          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:white;font-size:24px;">⛔ Taqiqlangan!</div>';
+    // DevTools ochilishini aniqlash — faqat oddiy foydalanuvchilar uchun
+    // Admin sahifasida bu check o'chiriladi
+    const isAdminPage = window.location.pathname.startsWith('/admin');
+    if (!isAdminPage) {
+      let devtools = { open: false };
+      const threshold = 160;
+      setInterval(function() {
+        if (
+          window.outerWidth - window.innerWidth > threshold ||
+          window.outerHeight - window.innerHeight > threshold
+        ) {
+          if (!devtools.open) {
+            devtools.open = true;
+          }
+        } else {
+          devtools.open = false;
         }
-      } else {
-        devtools.open = false;
-      }
-    }, 500);
+      }, 500);
+    }
 
     // Drag & Drop taqiqlash
     document.addEventListener('dragstart', function(e) {
