@@ -127,7 +127,7 @@ class ApiService {
 
   async getQuestions(params = {}) {
     const q = new URLSearchParams(params).toString()
-    return this.request(`/api/questions?${q}`)
+    return this.request(`/api/admin/questions?${q}`)
   }
 
   async deleteQuestion(id) {

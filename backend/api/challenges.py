@@ -48,8 +48,8 @@ async def create_category(
 
 # ─── Savollar ─────────────────────────────────────────────────────────────────
 
-@router.get("/questions", response_model=list[QuestionResponse])
-async def get_questions(
+@router.get("/admin/questions", response_model=list[QuestionResponse])
+async def get_admin_questions(
     category_id: Optional[int] = None,
     difficulty: Optional[str] = None,
     page: int = Query(1, ge=1),
