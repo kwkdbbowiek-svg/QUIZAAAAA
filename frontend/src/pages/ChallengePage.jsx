@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { ChallengeQuizPage } from './ChallengeQuizPage'
 
 export function ChallengePage() {
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [quizMode, setQuizMode] = useState(null) // Challenge ID for quiz
 
   useEffect(() => {
     loadChallenges()
@@ -41,8 +43,18 @@ export function ChallengePage() {
     }
   }
 
+  // Quiz mode
+  if (quizMode) {
+    return <ChallengeQuizPage challengeId={quizMode} onBack={() => setQuizMode(null)} />
+  }
+
   if (selected) {
-    return <ChallengeDetail challenge={selected} onBack={() => setSelected(null)} onJoin={handleJoin} />
+    return <ChallengeDetail 
+      challenge={selected} 
+      onBack={() => setSelected(null)} 
+      onJoin={handleJoin}
+      onStartQuiz={(id) => setQuizMode(id)}
+    />
   }
 
   return (
@@ -95,12 +107,29 @@ export function ChallengePage() {
   )
 }
 
-function ChallengeDetail({ challenge, onBack, onJoin }) {
+function ChallengeDetail({ challenge, onBack, onJoin, onStartQuiz }) {
+  const [info, setInfo] = useState(null)
+  
+  useEffect(() => {
+    loadInfo()
+  }, [challenge.id])
+  
+  const loadInfo = async () => {
+    try {
+      const data = await api.request(`/api/challenge-quiz/${challenge.id}/info`)
+      setInfo(data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+  
   const prizeDist = [
     { place: '🥇 1-o\'rin', percent: challenge.first_place_percent, prize: challenge.prize_pool * challenge.first_place_percent / 100 },
     { place: '🥈 2-o\'rin', percent: challenge.second_place_percent, prize: challenge.prize_pool * challenge.second_place_percent / 100 },
     { place: '🥉 3-o\'rin', percent: challenge.third_place_percent, prize: challenge.prize_pool * challenge.third_place_percent / 100 },
   ]
+
+  const canStartQuiz = info?.is_participant && info?.status === 'active' && !info?.finished
 
   return (
     <div className="p-4 max-w-md mx-auto space-y-4">
@@ -113,6 +142,30 @@ function ChallengeDetail({ challenge, onBack, onJoin }) {
       {challenge.description && (
         <div className="card bg-gradient-to-br from-purple-900/30 to-blue-900/30">
           <p className="text-gray-300">{challenge.description}</p>
+        </div>
+      )}
+
+      {/* User Status */}
+      {info && (
+        <div className={`card ${info.is_participant ? 'bg-green-900/20 border border-green-500/30' : 'bg-blue-900/20'}`}>
+          {info.is_participant ? (
+            <div>
+              <div className="text-green-400 font-bold mb-2">✅ Siz ishtirokchisiz</div>
+              {info.finished ? (
+                <div className="text-white">
+                  <div>🎯 Sizning ballingiz: <b>{info.my_score}</b></div>
+                  {info.my_rank && <div>🏅 Reyting: <b>{info.my_rank}-o'rin</b></div>}
+                  {info.my_prize > 0 && <div className="text-green-400">💰 Sovrin: <b>{info.my_prize.toLocaleString()} so'm</b></div>}
+                </div>
+              ) : info.status === 'active' ? (
+                <div className="text-yellow-400">⚡ Challenge faol - test yechishingiz mumkin!</div>
+              ) : (
+                <div className="text-gray-400">⏳ Challenge boshlanishini kuting</div>
+              )}
+            </div>
+          ) : (
+            <div className="text-blue-400">ℹ️ Qo'shilish uchun pastdagi tugmani bosing</div>
+          )}
         </div>
       )}
 
@@ -160,8 +213,17 @@ function ChallengeDetail({ challenge, onBack, onJoin }) {
         )}
       </div>
 
-      {/* Join Button */}
-      {challenge.status === 'upcoming' || challenge.status === 'active' ? (
+      {/* Action Buttons */}
+      {canStartQuiz ? (
+        <button onClick={() => onStartQuiz(challenge.id)}
+          className="btn-primary w-full text-lg py-4 glow animate-pulse">
+          🎯 Testni Boshlash
+        </button>
+      ) : info?.is_participant ? (
+        <div className="card text-center text-gray-400">
+          {info.finished ? '✅ Siz allaqachon test yechdingiz' : '⏳ Challenge boshlanishini kuting'}
+        </div>
+      ) : (challenge.status === 'upcoming' || challenge.status === 'active') ? (
         <button onClick={() => onJoin(challenge.id)}
           className="btn-primary w-full text-lg py-4 glow">
           {challenge.entry_fee > 0 ? `💳 Qo'shilish (${challenge.entry_fee.toLocaleString()} so'm)` : '🎯 Tekin Qo\'shilish'}
